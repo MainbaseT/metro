@@ -1,6 +1,6 @@
 {
   "name": "metro-memory-fs",
-  "version": "0.80.6",
+  "version": "0.80.9",
   "description": "🚇 A memory-based implementation of `fs` useful for testing.",
   "main": "src/index.js",
   "repository": {
@@ -14,5 +14,8 @@
   "license": "MIT",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "flow-enums-runtime": "^0.0.6"
   }
 }

@@ -51,6 +51,7 @@ export function resolvePackageTargetFromExports(
    * to a package-relative subpath for comparison.
    */
   modulePath: string,
+  packageRelativePath: string,
   exportsField: ExportsField,
   platform: string | null,
 ): FileResolution {
@@ -61,13 +62,14 @@ export function resolvePackageTargetFromExports(
     });
   };
 
-  const subpath = getExportsSubpath(packagePath, modulePath);
+  const subpath = getExportsSubpath(packageRelativePath);
   const exportMap = normalizeExportsField(exportsField, createConfigError);
 
   if (!isSubpathDefinedInExports(exportMap, subpath)) {
     throw new PackagePathNotExportedError(
       `Attempted to import the module "${modulePath}" which is not listed ` +
-        `in the "exports" of "${packagePath}".`,
+        `in the "exports" of "${packagePath}" under the requested subpath ` +
+        `"${subpath}".`,
     );
   }
 
@@ -135,9 +137,7 @@ export function resolvePackageTargetFromExports(
  * Convert a module path to the package-relative subpath key to attempt for
  * "exports" field lookup.
  */
-function getExportsSubpath(packagePath: string, modulePath: string): string {
-  const packageSubpath = path.relative(packagePath, modulePath);
-
+function getExportsSubpath(packageSubpath: string): string {
   return packageSubpath === '' ? '.' : './' + toPosixPath(packageSubpath);
 }
 
@@ -373,7 +373,16 @@ function reduceConditionalExport(
   let reducedValue = subpathValue;
 
   while (reducedValue != null && typeof reducedValue !== 'string') {
-    let match: typeof subpathValue | 'no-match' = 'no-match';
+    let match: typeof subpathValue | 'no-match';
+
+    // when conditions are present and default is not specified
+    // the default condition is implicitly set to null, to allow
+    // for restricting access to unexported internals of a package.
+    if ('default' in reducedValue) {
+      match = 'no-match';
+    } else {
+      match = null;
+    }
 
     for (const conditionName in reducedValue) {
       if (conditionNames.has(conditionName)) {

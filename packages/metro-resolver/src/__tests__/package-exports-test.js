@@ -216,7 +216,6 @@ describe('with package exports resolution enabled', () => {
         ...baseContext,
         ...createPackageAccessors({
           '/root/node_modules/test-pkg/package.json': {
-            main: 'index-main.js',
             exports: './index-exports.js',
           },
         }),
@@ -225,14 +224,16 @@ describe('with package exports resolution enabled', () => {
       test('without expanding `sourceExts`', () => {
         expect(Resolver.resolve(context, 'test-pkg', null)).toEqual({
           type: 'sourceFile',
-          filePath: '/root/node_modules/test-pkg/index-main.js',
+          // [nonstrict] Falls back to index.js based on file resolution
+          filePath: '/root/node_modules/test-pkg/index.js',
         });
       });
 
       test('without expanding platform-specific extensions', () => {
         expect(Resolver.resolve(context, 'test-pkg', 'ios')).toEqual({
           type: 'sourceFile',
-          filePath: '/root/node_modules/test-pkg/index-main.js',
+          // [nonstrict] Falls back to index.js based on file resolution
+          filePath: '/root/node_modules/test-pkg/index.js',
         });
       });
 
@@ -305,7 +306,7 @@ describe('with package exports resolution enabled', () => {
       });
       expect(logWarning).toHaveBeenCalledTimes(1);
       expect(logWarning.mock.calls[0][0]).toMatchInlineSnapshot(
-        `"Attempted to import the module \\"/root/node_modules/test-pkg/foo\\" which is not listed in the \\"exports\\" of \\"/root/node_modules/test-pkg\\". Falling back to file-based resolution. Consider updating the call site or asking the package maintainer(s) to expose this API."`,
+        `"Attempted to import the module \\"/root/node_modules/test-pkg/foo\\" which is not listed in the \\"exports\\" of \\"/root/node_modules/test-pkg\\" under the requested subpath \\"./foo\\". Falling back to file-based resolution. Consider updating the call site or asking the package maintainer(s) to expose this API."`,
       );
     });
 
@@ -453,7 +454,7 @@ describe('with package exports resolution enabled', () => {
         );
         expect(logWarning).toHaveBeenCalledTimes(1);
         expect(logWarning.mock.calls[0][0]).toMatchInlineSnapshot(
-          `"Attempted to import the module \\"/root/node_modules/test-pkg/private/bar\\" which is not listed in the \\"exports\\" of \\"/root/node_modules/test-pkg\\". Falling back to file-based resolution. Consider updating the call site or asking the package maintainer(s) to expose this API."`,
+          `"Attempted to import the module \\"/root/node_modules/test-pkg/private/bar\\" which is not listed in the \\"exports\\" of \\"/root/node_modules/test-pkg\\" under the requested subpath \\"./private/bar\\". Falling back to file-based resolution. Consider updating the call site or asking the package maintainer(s) to expose this API."`,
         );
       });
 
@@ -539,10 +540,6 @@ describe('with package exports resolution enabled', () => {
           'test-pkg/features/foo.js.js',
           '/root/node_modules/test-pkg/src/features/foo.js.js',
         ],
-        [
-          'test-pkg/features/bar/Bar.js',
-          '/root/node_modules/test-pkg/src/features/bar/Bar.js',
-        ],
       ]) {
         expect(Resolver.resolve(baseContext, importSpecifier, null)).toEqual({
           type: 'sourceFile',
@@ -558,7 +555,13 @@ describe('with package exports resolution enabled', () => {
       ).toThrowError();
     });
 
-    test('should use most specific pattern base', () => {
+    test('should use the most specific pattern base - implicit default condition', () => {
+      expect(() =>
+        Resolver.resolve(baseContext, 'test-pkg/features/bar/Bar.js', null),
+      ).toThrowError();
+    });
+
+    test('should use most specific pattern base - custom condition', () => {
       const context = {
         ...baseContext,
         unstable_conditionNames: ['react-native'],
